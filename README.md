@@ -1,3 +1,47 @@
+# TechWiseTutors Website + Volunteer Portal
+
+Modern nonprofit website (public) + internal volunteer/admin portal.
+
+## Stack
+- Next.js (App Router) + Tailwind CSS
+- SQLite (local) + Prisma
+- Cookie-based auth (Admin + Volunteer roles)
+
+## Quick start
+
+1) Install deps:
+
+```bash
+npm install
+```
+
+2) Set environment variables in `.env`:
+- `AUTH_SECRET`: long random string
+- `ADMIN_EMAIL`: admin email (default is `matthewsingh291@gmail.com`)
+- `ADMIN_PASSWORD`: set a strong password
+
+3) Create DB + seed admin:
+
+```bash
+npm run db:migrate -- --name init
+npm run db:seed
+```
+
+4) Run dev server:
+
+```bash
+npm run dev
+```
+
+## Key URLs
+- Public site: `/`
+- Book a session: `/book`
+- Volunteer application: `/volunteer`
+- Volunteer login: `/volunteer/login`
+- Volunteer dashboard: `/volunteer/dashboard`
+- Admin login: `/admin/login`
+- Admin dashboard: `/admin`
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
