@@ -16,11 +16,11 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Protect admin routes (except login)
-  if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
+  // Protect admin routes
+  if (pathname.startsWith("/admin")) {
     const session = request.cookies.get("admin_session");
     if (!session) {
-      return NextResponse.redirect(new URL("/admin/login", request.url));
+      return NextResponse.redirect(new URL("/volunteer/login", request.url));
     }
   }
 

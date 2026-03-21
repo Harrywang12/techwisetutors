@@ -15,8 +15,14 @@ const links = [
   { href: "/contact", label: "Contact" },
 ];
 
-export default function NavBar() {
+export default function NavBar({ isVolunteer, isAdmin }: { isVolunteer?: boolean; isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
+
+  const authLink = isAdmin
+    ? { href: "/admin", label: "Admin Dashboard" }
+    : isVolunteer
+    ? { href: "/volunteer/dashboard", label: "Dashboard" }
+    : { href: "/volunteer/login", label: "Login" };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
@@ -43,8 +49,8 @@ export default function NavBar() {
                 {link.label}
               </Link>
             ))}
-            <Link href="/volunteer/login" className="ml-2 btn-primary text-sm !py-2 !px-5">
-              Volunteer Login
+            <Link href={authLink.href} className="ml-2 btn-primary text-sm !py-2 !px-5">
+              {authLink.label}
             </Link>
           </div>
 
@@ -76,11 +82,11 @@ export default function NavBar() {
                 </Link>
               ))}
               <Link
-                href="/volunteer/login"
+                href={authLink.href}
                 onClick={() => setOpen(false)}
                 className="block text-center mt-3 btn-primary text-sm !py-2.5"
               >
-                Volunteer Login
+                {authLink.label}
               </Link>
             </div>
           </motion.div>

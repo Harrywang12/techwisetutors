@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Mail, Lock, Loader2, LogIn } from "lucide-react";
-import { loginVolunteer } from "./actions";
+import { loginUser } from "./actions";
 
 export default function LoginForm() {
   const [loading, setLoading] = useState(false);
@@ -12,7 +12,7 @@ export default function LoginForm() {
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError("");
-    const result = await loginVolunteer(formData);
+    const result = await loginUser(formData);
     setLoading(false);
     if (result?.error) {
       setError(result.error);
@@ -21,7 +21,7 @@ export default function LoginForm() {
 
   return (
     <form action={handleSubmit} className="card max-w-md mx-auto">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Volunteer Login</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Sign In</h2>
 
       <div className="space-y-5">
         <div>

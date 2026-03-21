@@ -19,7 +19,7 @@ export async function requireVolunteer() {
 
 export async function requireAdmin() {
   const id = await getSession("admin");
-  if (!id) redirect("/admin/login");
+  if (!id) redirect("/volunteer/login");
 
   const { data: admin } = await supabase
     .from("admins")
@@ -27,7 +27,7 @@ export async function requireAdmin() {
     .eq("id", id)
     .single();
 
-  if (!admin) redirect("/admin/login");
+  if (!admin) redirect("/volunteer/login");
 
   return admin;
 }
