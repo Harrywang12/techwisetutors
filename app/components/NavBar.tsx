@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X, Monitor } from "lucide-react";
 
 const links = [
   { href: "/", label: "Home" },
@@ -10,56 +15,77 @@ const links = [
   { href: "/contact", label: "Contact" },
 ];
 
-export function NavBar() {
+export default function NavBar() {
+  const [open, setOpen] = useState(false);
+
   return (
-    <header className="sticky top-0 z-50 border-b border-blue-100 bg-white/80 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <Link
-          href="/"
-          className="flex items-center gap-2 rounded-xl px-2 py-1 font-semibold text-blue-900 hover:bg-blue-50"
-        >
-          <span className="inline-flex size-8 items-center justify-center rounded-xl bg-blue-600 text-white">
-            TW
-          </span>
-          <span className="hidden sm:inline">TechWiseTutors</span>
-        </Link>
-
-        <nav className="hidden flex-wrap items-center justify-end gap-1 md:flex">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900"
-            >
-              {l.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-2">
-          <Link
-            href="/volunteer/login"
-            className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
-          >
-            Volunteer Login
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-9 h-9 bg-gradient-to-br from-primary-600 to-primary-700 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+              <Monitor className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-xl text-gray-900">
+              TechWise<span className="text-primary-600">Tutors</span>
+            </span>
           </Link>
+
+          {/* Desktop Links */}
+          <div className="hidden lg:flex items-center gap-1">
+            {links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-primary-600 rounded-lg hover:bg-primary-50 transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
+            <Link href="/volunteer/login" className="ml-2 btn-primary text-sm !py-2 !px-5">
+              Volunteer Login
+            </Link>
+          </div>
+
+          {/* Mobile Toggle */}
+          <button onClick={() => setOpen(!open)} className="lg:hidden p-2 text-gray-600 hover:text-primary-600">
+            {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
       </div>
 
-      <div className="mx-auto block max-w-6xl px-4 pb-3 md:hidden">
-        <div className="flex flex-wrap gap-2">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-900"
-            >
-              {l.label}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </header>
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="lg:hidden bg-white border-b border-gray-100 overflow-hidden"
+          >
+            <div className="px-4 py-3 space-y-1">
+              {links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="block px-3 py-2.5 text-base font-medium text-gray-700 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                >
+                  {link.label}
+                </Link>
+              ))}
+              <Link
+                href="/volunteer/login"
+                onClick={() => setOpen(false)}
+                className="block text-center mt-3 btn-primary text-sm !py-2.5"
+              >
+                Volunteer Login
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
   );
 }
-

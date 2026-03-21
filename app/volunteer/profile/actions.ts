@@ -1,50 +1,44 @@
 "use server";
 
-import { prisma } from "@/app/lib/db";
-import { requireSession } from "@/app/lib/requireAuth";
-import { z } from "zod";
+import { supabase } from "../../lib/db";
+import { getSession } from "../../lib/session";
 
-const ProfileSchema = z.object({
-  name: z.string().min(2).max(100),
-  school: z.string().max(200).optional().or(z.literal("")),
-  availability: z.string().max(2000).optional().or(z.literal("")),
-});
+export async function updateVolunteerProfile(formData: FormData) {
+  const volunteerId = await getSession("volunteer");
+  if (!volunteerId) return { error: "Not authenticated." };
 
-export type ProfileState =
-  | { ok: true; message: string }
-  | { ok: false; message: string };
+  const fullName = formData.get("fullName") as string;
+  const email = formData.get("email") as string;
+  const school = formData.get("school") as string;
+  const availability = formData.get("availability") as string;
 
-export async function updateProfile(
-  _prev: ProfileState | null,
-  formData: FormData,
-): Promise<ProfileState> {
-  const session = await requireSession();
-  const parsed = ProfileSchema.safeParse({
-    name: formData.get("name"),
-    school: formData.get("school"),
-    availability: formData.get("availability"),
-  });
-  if (!parsed.success) return { ok: false, message: "Please check the form." };
+  if (!fullName || !email || !school || !availability) {
+    return { error: "All fields are required." };
+  }
 
-  await prisma.user.update({
-    where: { id: session.userId },
-    data: {
-      name: parsed.data.name,
-      profile: {
-        upsert: {
-          create: {
-            school: parsed.data.school || null,
-            availability: parsed.data.availability || null,
-          },
-          update: {
-            school: parsed.data.school || null,
-            availability: parsed.data.availability || null,
-          },
-        },
-      },
-    },
-  });
+  // Check if email is taken by another volunteer
+  const { data: existing } = await supabase
+    .from("volunteers")
+    .select("id")
+    .eq("email", email)
+    .neq("id", volunteerId)
+    .maybeSingle();
 
-  return { ok: true, message: "Profile updated." };
+  if (existing) {
+    return { error: "This email is already in use by another account." };
+  }
+
+  const { error } = await supabase
+    .from("volunteers")
+    .update({
+      full_name: fullName,
+      email,
+      school,
+      availability,
+    })
+    .eq("id", volunteerId);
+
+  if (error) return { error: "Failed to update profile. Please try again." };
+
+  return { success: true };
 }
-

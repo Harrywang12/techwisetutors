@@ -1,38 +1,37 @@
 "use server";
 
-import { prisma } from "@/app/lib/db";
-import { verifyPassword } from "@/app/lib/password";
-import { setSession } from "@/app/lib/session";
-import { z } from "zod";
+import { redirect } from "next/navigation";
+import { supabase } from "../../lib/db";
+import { verifyPassword } from "../../lib/password";
+import { setSession } from "../../lib/session";
 
-const LoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6).max(200),
-});
+export async function loginVolunteer(formData: FormData) {
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
 
-export type LoginState =
-  | { ok: true; message: string }
-  | { ok: false; message: string };
+  if (!email || !password) {
+    return { error: "Email and password are required." };
+  }
 
-export async function volunteerLogin(
-  _prev: LoginState | null,
-  formData: FormData,
-): Promise<LoginState> {
-  const parsed = LoginSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-  });
-  if (!parsed.success) return { ok: false, message: "Invalid login details." };
+  const { data: volunteer } = await supabase
+    .from("volunteers")
+    .select("*")
+    .eq("email", email)
+    .single();
 
-  const email = parsed.data.email.toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !user.isActive) return { ok: false, message: "Invalid login." };
+  if (!volunteer) {
+    return { error: "Invalid email or password." };
+  }
 
-  const ok = await verifyPassword(parsed.data.password, user.passwordHash);
-  if (!ok) return { ok: false, message: "Invalid login." };
+  if (volunteer.status !== "active") {
+    return { error: "Your account has been deactivated. Please contact an administrator." };
+  }
 
-  await setSession({ userId: user.id, role: user.role });
+  const valid = verifyPassword(password, volunteer.password);
+  if (!valid) {
+    return { error: "Invalid email or password." };
+  }
 
-  return { ok: true, message: "Logged in. Redirecting to your dashboard..." };
+  await setSession("volunteer", volunteer.id);
+  redirect("/volunteer/dashboard");
 }
-

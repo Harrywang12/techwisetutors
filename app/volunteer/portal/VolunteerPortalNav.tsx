@@ -1,41 +1,57 @@
-import Link from "next/link";
-import { logout } from "@/app/volunteer/portal/actions";
+"use client";
 
-export function VolunteerPortalNav(props: { role: "ADMIN" | "VOLUNTEER" }) {
-  const links = [
-    { href: "/volunteer/dashboard", label: "Dashboard" },
-    { href: "/volunteer/schedule", label: "My Schedule" },
-    { href: "/volunteer/hours", label: "My Hours" },
-    { href: "/volunteer/profile", label: "My Profile" },
-  ];
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, Calendar, Clock, User, LogOut } from "lucide-react";
+import { logoutVolunteer } from "./actions";
+
+const links = [
+  { href: "/volunteer/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/volunteer/schedule", label: "My Schedule", icon: Calendar },
+  { href: "/volunteer/hours", label: "My Hours", icon: Clock },
+  { href: "/volunteer/profile", label: "My Profile", icon: User },
+];
+
+export default function VolunteerPortalNav({ volunteerName }: { volunteerName: string }) {
+  const pathname = usePathname();
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-blue-100 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap gap-2">
-        {links.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-800 hover:bg-blue-100"
-          >
-            {l.label}
-          </Link>
-        ))}
-        {props.role === "ADMIN" ? (
-          <Link
-            href="/admin"
-            className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-900 hover:bg-indigo-100"
-          >
-            Admin Portal
-          </Link>
-        ) : null}
+    <div className="bg-white border-b border-gray-100 sticky top-16 z-40">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14">
+          <div className="flex items-center gap-6 overflow-x-auto">
+            {links.map((link) => {
+              const active = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center gap-2 text-sm font-medium py-4 border-b-2 transition-colors whitespace-nowrap ${
+                    active
+                      ? "border-primary-600 text-primary-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <link.icon className="w-4 h-4" />
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-500 hidden sm:block">
+              Welcome, <span className="font-semibold text-gray-700">{volunteerName}</span>
+            </span>
+            <form action={logoutVolunteer}>
+              <button type="submit" className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-600 transition-colors">
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
-      <form action={logout}>
-        <button className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-          Log out
-        </button>
-      </form>
     </div>
   );
 }
-

@@ -1,64 +1,48 @@
 "use server";
 
-import { prisma } from "@/app/lib/db";
-import { z } from "zod";
-import { ReviewStatus } from "@prisma/client";
+import { supabase } from "../lib/db";
 
-const ApplicationSchema = z.object({
-  fullName: z.string().min(2).max(100),
-  email: z.string().email(),
-  school: z.string().min(2).max(200),
-  grade: z.string().min(1).max(50),
-  whyVolunteer: z.string().min(10).max(4000),
-  techExperience: z.string().min(5).max(4000),
-  availability: z.string().min(2).max(2000),
-  pastVolunteerExperience: z.string().min(1).max(4000),
-});
+export async function submitVolunteerApplication(formData: FormData) {
+  const fullName = formData.get("fullName") as string;
+  const email = formData.get("email") as string;
+  const school = formData.get("school") as string;
+  const grade = formData.get("grade") as string;
+  const whyVolunteer = formData.get("whyVolunteer") as string;
+  const techExperience = formData.get("techExperience") as string;
+  const availability = formData.get("availability") as string;
+  const pastExperience = formData.get("pastExperience") as string;
 
-export type VolunteerApplyState =
-  | { ok: true; message: string }
-  | { ok: false; message: string };
-
-export async function submitVolunteerApplication(
-  _prev: VolunteerApplyState | null,
-  formData: FormData,
-): Promise<VolunteerApplyState> {
-  const parsed = ApplicationSchema.safeParse({
-    fullName: formData.get("fullName"),
-    email: formData.get("email"),
-    school: formData.get("school"),
-    grade: formData.get("grade"),
-    whyVolunteer: formData.get("whyVolunteer"),
-    techExperience: formData.get("techExperience"),
-    availability: formData.get("availability"),
-    pastVolunteerExperience: formData.get("pastVolunteerExperience"),
-  });
-
-  if (!parsed.success) {
-    return { ok: false, message: "Please check the form fields and try again." };
+  if (!fullName || !email || !school || !grade || !whyVolunteer || !techExperience || !availability) {
+    return { error: "Please fill in all required fields." };
   }
 
-  const email = parsed.data.email.toLowerCase();
+  // Check if already applied
+  const { data: existing } = await supabase
+    .from("volunteer_applications")
+    .select("id")
+    .eq("email", email)
+    .in("status", ["pending", "approved"])
+    .limit(1)
+    .maybeSingle();
 
-  await prisma.volunteerApplication.upsert({
-    where: { email },
-    create: {
-      status: ReviewStatus.PENDING,
-      ...parsed.data,
-      email,
-    },
-    update: {
-      status: ReviewStatus.PENDING,
-      reviewNotes: null,
-      ...parsed.data,
-      email,
-    },
-  });
+  if (existing) {
+    return { error: "An application with this email already exists." };
+  }
 
-  return {
-    ok: true,
-    message:
-      "Application submitted! An administrator will review it. Approval is required before you can create a volunteer login.",
-  };
+  const { error } = await supabase
+    .from("volunteer_applications")
+    .insert({
+      full_name: fullName,
+      email,
+      school,
+      grade,
+      why_volunteer: whyVolunteer,
+      tech_experience: techExperience,
+      availability,
+      past_experience: pastExperience || "None",
+    });
+
+  if (error) return { error: "Failed to submit application. Please try again." };
+
+  return { success: true };
 }
-

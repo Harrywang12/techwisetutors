@@ -1,73 +1,69 @@
 "use server";
 
-import "dotenv/config";
-import { prisma } from "@/app/lib/db";
-import { hashPassword } from "@/app/lib/password";
-import { setSession } from "@/app/lib/session";
-import { ReviewStatus, UserRole } from "@prisma/client";
-import { z } from "zod";
+import { redirect } from "next/navigation";
+import { supabase } from "../../lib/db";
+import { hashPassword } from "../../lib/password";
+import { setSession } from "../../lib/session";
 
-const RegisterSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(2).max(100),
-  password: z.string().min(6).max(200),
-});
+export async function registerVolunteer(formData: FormData) {
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
 
-export type RegisterState =
-  | { ok: true; message: string }
-  | { ok: false; message: string };
-
-export async function volunteerRegister(
-  _prev: RegisterState | null,
-  formData: FormData,
-): Promise<RegisterState> {
-  const parsed = RegisterSchema.safeParse({
-    email: formData.get("email"),
-    name: formData.get("name"),
-    password: formData.get("password"),
-  });
-  if (!parsed.success) return { ok: false, message: "Please check the form." };
-
-  const email = parsed.data.email.toLowerCase();
-
-  const application = await prisma.volunteerApplication.findUnique({
-    where: { email },
-  });
-
-  if (!application || application.status !== ReviewStatus.APPROVED) {
-    return {
-      ok: false,
-      message:
-        "This email has not been approved yet. Please submit an application first (or wait for approval).",
-    };
+  if (!email || !password || !confirmPassword) {
+    return { error: "All fields are required." };
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  if (password.length < 6) {
+    return { error: "Password must be at least 6 characters." };
+  }
+
+  if (password !== confirmPassword) {
+    return { error: "Passwords do not match." };
+  }
+
+  // Check if email has an approved application
+  const { data: application } = await supabase
+    .from("volunteer_applications")
+    .select("*")
+    .eq("email", email)
+    .eq("status", "approved")
+    .limit(1)
+    .maybeSingle();
+
+  if (!application) {
+    return { error: "No approved application found for this email. Please apply first and wait for approval." };
+  }
+
+  // Check if account already exists
+  const { data: existing } = await supabase
+    .from("volunteers")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+
   if (existing) {
-    return {
-      ok: false,
-      message: "An account already exists for this email. Please sign in.",
-    };
+    return { error: "An account with this email already exists. Please log in instead." };
   }
 
-  const user = await prisma.user.create({
-    data: {
-      role: UserRole.VOLUNTEER,
-      isActive: true,
-      name: parsed.data.name,
+  const { data: volunteer, error } = await supabase
+    .from("volunteers")
+    .insert({
       email,
-      passwordHash: await hashPassword(parsed.data.password),
-      profile: {
-        create: {
-          school: application.school,
-          availability: application.availability,
-        },
-      },
-    },
-  });
+      password: hashPassword(password),
+      full_name: application.full_name,
+      school: application.school,
+      grade: application.grade,
+      availability: application.availability,
+      application_id: application.id,
+    })
+    .select("id")
+    .single();
 
-  await setSession({ userId: user.id, role: user.role });
+  if (error || !volunteer) {
+    return { error: "Failed to create account. Please try again." };
+  }
 
-  return { ok: true, message: "Account created. Redirecting to your dashboard..." };
+  await setSession("volunteer", volunteer.id);
+  redirect("/volunteer/dashboard");
 }
-

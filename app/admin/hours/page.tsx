@@ -1,86 +1,110 @@
-import { requireAdmin } from "@/app/lib/requireAuth";
-import { AdminNav } from "@/app/admin/AdminNav";
-import { prisma } from "@/app/lib/db";
-import { ReviewStatus } from "@prisma/client";
-import { approveHourLog, rejectHourLog } from "@/app/admin/hours/actions";
+import { requireAdmin } from "../../lib/requireAuth";
+import { supabase } from "../../lib/db";
+import AdminNav from "../AdminNav";
+import { Clock, CheckCircle, XCircle, User } from "lucide-react";
+import { approveHours, rejectHours } from "./actions";
 
 export default async function AdminHoursPage() {
   await requireAdmin();
 
-  const pending = await prisma.hourLog.findMany({
-    where: { status: ReviewStatus.PENDING },
-    include: { user: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const { data: hourLogsData } = await supabase
+    .from("hour_logs")
+    .select("*, volunteers(full_name, email)")
+    .order("created_at", { ascending: false });
+
+  const hourLogs = (hourLogsData || []).map((log) => ({
+    ...log,
+    volunteer: log.volunteers as { full_name: string; email: string },
+  }));
+
+  const pending = hourLogs.filter((h) => h.status === "pending");
+  const reviewed = hourLogs.filter((h) => h.status !== "pending");
 
   return (
-    <main className="bg-gradient-to-b from-blue-50 via-white to-white">
-      <section className="mx-auto max-w-6xl px-4 py-10">
-        <AdminNav />
+    <>
+      <AdminNav />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-black text-gray-900">Approve Volunteer Hours</h1>
+          <p className="text-gray-500 mt-1">Review and approve submitted volunteer hour logs.</p>
+        </div>
 
-        <div className="mt-6 rounded-3xl border border-blue-100 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="text-2xl font-extrabold text-slate-900">
-              Pending Hours Approval
-            </h1>
-            <div className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-extrabold text-blue-800">
-              {pending.length}
+        {/* Pending */}
+        <div className="mb-10">
+          <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Clock className="w-5 h-5 text-yellow-600" /> Pending Hours ({pending.length})
+          </h2>
+          {pending.length === 0 ? (
+            <div className="card text-center py-12">
+              <Clock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">No pending hour logs.</p>
             </div>
-          </div>
-
-          <div className="mt-6 grid gap-4">
-            {pending.length ? (
-              pending.map((h) => (
-                <div key={h.id} className="rounded-2xl border border-blue-100 bg-white p-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="text-base font-extrabold text-slate-900">
-                        {h.user.name} • {h.hours.toFixed(1)} hr • {h.activityType}
+          ) : (
+            <div className="space-y-4">
+              {pending.map((log) => (
+                <div key={log.id} className="card border-l-4 border-yellow-400">
+                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                          <User className="w-4 h-4 text-primary-600" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-gray-900">{log.volunteer.full_name}</span>
+                          <span className="text-gray-500 text-xs ml-2">{log.volunteer.email}</span>
+                        </div>
                       </div>
-                      <div className="text-sm font-semibold text-slate-700">
-                        {h.user.email} • {h.date.toLocaleDateString()} • {h.location}
+                      <div className="grid sm:grid-cols-2 gap-2 text-sm">
+                        <div><span className="font-medium text-gray-700">Date:</span> <span className="text-gray-600">{log.date}</span></div>
+                        <div><span className="font-medium text-gray-700">Hours:</span> <span className="text-gray-600 font-bold">{log.hours}h</span></div>
+                        <div><span className="font-medium text-gray-700">Activity:</span> <span className="text-gray-600">{log.activity_type}</span></div>
+                        <div><span className="font-medium text-gray-700">Location:</span> <span className="text-gray-600">{log.location}</span></div>
                       </div>
-                      <div className="mt-2 text-sm text-slate-700">{h.notes}</div>
+                      {log.notes && <p className="text-gray-500 text-sm mt-2">{log.notes}</p>}
                     </div>
-                    <div className="text-xs font-extrabold text-blue-800">{h.status}</div>
-                  </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <form action={approveHourLog} className="grid gap-2">
-                      <input type="hidden" name="id" value={h.id} />
-                      <input
-                        name="note"
-                        placeholder="Optional note"
-                        className="h-10 rounded-2xl border border-blue-100 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                      />
-                      <button className="h-10 rounded-2xl bg-emerald-600 text-sm font-extrabold text-white hover:bg-emerald-700">
-                        Approve
-                      </button>
-                    </form>
-
-                    <form action={rejectHourLog} className="grid gap-2">
-                      <input type="hidden" name="id" value={h.id} />
-                      <input
-                        name="note"
-                        placeholder="Optional note"
-                        className="h-10 rounded-2xl border border-blue-100 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                      />
-                      <button className="h-10 rounded-2xl bg-rose-600 text-sm font-extrabold text-white hover:bg-rose-700">
-                        Reject
-                      </button>
-                    </form>
+                    <div className="flex lg:flex-col gap-2 shrink-0">
+                      <form action={async () => { "use server"; await approveHours(log.id); }}>
+                        <button type="submit" className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors w-full justify-center">
+                          <CheckCircle className="w-4 h-4" /> Approve
+                        </button>
+                      </form>
+                      <form action={async () => { "use server"; await rejectHours(log.id); }}>
+                        <button type="submit" className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors w-full justify-center">
+                          <XCircle className="w-4 h-4" /> Reject
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-slate-700">
-                No pending hour logs.
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
-      </section>
-    </main>
+
+        {/* Reviewed */}
+        {reviewed.length > 0 && (
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Reviewed Hour Logs ({reviewed.length})</h2>
+            <div className="space-y-3">
+              {reviewed.map((log) => (
+                <div key={log.id} className="card !p-4 flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-gray-900 text-sm">{log.volunteer.full_name}</div>
+                    <div className="text-gray-500 text-xs">{log.date} &middot; {log.hours}h &middot; {log.activity_type}</div>
+                    {log.admin_notes && <div className="text-xs text-primary-600 mt-1">Note: {log.admin_notes}</div>}
+                  </div>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    log.status === "approved" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                  }`}>
+                    {log.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
-

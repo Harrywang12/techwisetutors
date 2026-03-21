@@ -1,77 +1,98 @@
-import { prisma } from "@/app/lib/db";
-import { requireSession } from "@/app/lib/requireAuth";
-import { VolunteerPortalNav } from "@/app/volunteer/portal/VolunteerPortalNav";
+import { Calendar, MapPin, Clock } from "lucide-react";
+import { requireVolunteer } from "../../lib/requireAuth";
+import { supabase } from "../../lib/db";
+import VolunteerPortalNav from "../portal/VolunteerPortalNav";
 
 export default async function VolunteerSchedulePage() {
-  const session = await requireSession();
-  const now = new Date();
+  const volunteer = await requireVolunteer();
 
-  const upcoming = await prisma.shiftAssignment.findMany({
-    where: { userId: session.userId, shift: { startAt: { gte: now } } },
-    include: { shift: true },
-    orderBy: { shift: { startAt: "asc" } },
-  });
+  const { data: assignments } = await supabase
+    .from("schedule_assignments")
+    .select("id, event_id, schedule_events(*)")
+    .eq("volunteer_id", volunteer.id);
 
-  const past = await prisma.shiftAssignment.findMany({
-    where: { userId: session.userId, shift: { startAt: { lt: now } } },
-    include: { shift: true },
-    orderBy: { shift: { startAt: "desc" } },
-  });
+  type EventData = { title: string; date: string; start_time: string; end_time: string; location: string; description: string };
 
-  const render = (items: typeof upcoming) => (
-    <div className="mt-3 grid gap-3">
-      {items.length ? (
-        items.map((a) => (
-          <div
-            key={a.id}
-            className="rounded-2xl border border-blue-100 bg-white p-4"
-          >
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <div className="font-extrabold text-slate-900">{a.shift.title}</div>
-              <div className="text-sm font-semibold text-slate-700">
-                {a.shift.startAt.toLocaleString()} –{" "}
-                {a.shift.endAt.toLocaleTimeString(undefined, {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
-              </div>
-            </div>
-            <div className="mt-1 text-sm text-slate-700">
-              Location: <span className="font-semibold">{a.shift.location}</span>
-            </div>
-            {a.shift.details ? (
-              <div className="mt-2 text-sm text-slate-600">{a.shift.details}</div>
-            ) : null}
-          </div>
-        ))
-      ) : (
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-slate-700">
-          Nothing here yet.
-        </div>
-      )}
-    </div>
-  );
+  const mapped = (assignments || [])
+    .filter((a) => a.schedule_events)
+    .map((a) => ({ ...a, event: a.schedule_events as unknown as EventData }));
+
+  const sorted = mapped.sort((a, b) => a.event.date.localeCompare(b.event.date));
+
+  const today = new Date().toISOString().split("T")[0];
+  const upcoming = sorted.filter((a) => a.event.date >= today);
+  const past = sorted.filter((a) => a.event.date < today);
 
   return (
-    <main className="bg-gradient-to-b from-blue-50 via-white to-white">
-      <section className="mx-auto max-w-6xl px-4 py-10">
-        <VolunteerPortalNav role={session.role} />
+    <>
+      <VolunteerPortalNav volunteerName={volunteer.full_name} />
 
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
-          <div className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm">
-            <h1 className="text-2xl font-extrabold text-slate-900">
-              Upcoming schedule
-            </h1>
-            {render(upcoming)}
-          </div>
-
-          <div className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm">
-            <h2 className="text-2xl font-extrabold text-slate-900">Past</h2>
-            {render(past)}
-          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-black text-gray-900">My Schedule</h1>
+          <p className="text-gray-500 mt-1">View your assigned tutoring sessions and events.</p>
         </div>
-      </section>
-    </main>
+
+        {/* Upcoming */}
+        <div className="mb-10">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Upcoming Sessions</h2>
+          {upcoming.length === 0 ? (
+            <div className="card text-center py-12">
+              <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">No upcoming sessions assigned yet.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {upcoming.map((a) => (
+                  <div key={a.id} className="card border-l-4 border-primary-500">
+                    <h3 className="font-bold text-gray-900 text-lg mb-3">{a.event.title}</h3>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                        {a.event.date}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-400" />
+                        {a.event.start_time} - {a.event.end_time}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-gray-400" />
+                        {a.event.location}
+                      </div>
+                    </div>
+                    {a.event.description && (
+                      <p className="text-gray-500 text-sm mt-3 pt-3 border-t border-gray-100">
+                        {a.event.description}
+                      </p>
+                    )}
+                  </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Past */}
+        {past.length > 0 && (
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Past Sessions</h2>
+            <div className="space-y-3">
+              {past.map((a) => (
+                  <div key={a.id} className="card !p-4 flex items-center justify-between opacity-70">
+                    <div>
+                      <div className="font-semibold text-gray-900 text-sm">{a.event.title}</div>
+                      <div className="text-gray-500 text-xs">
+                        {a.event.date} &middot; {a.event.location}
+                      </div>
+                    </div>
+                    <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                      Completed
+                    </span>
+                  </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
-

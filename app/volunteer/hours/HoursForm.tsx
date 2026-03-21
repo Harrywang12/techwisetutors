@@ -1,99 +1,119 @@
 "use client";
 
-import { useActionState } from "react";
-import type { HourSubmitState } from "@/app/volunteer/hours/actions";
-import { submitHours } from "@/app/volunteer/hours/actions";
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Calendar, Clock, MapPin, FileText, CheckCircle2, Loader2, Plus } from "lucide-react";
+import { submitHourLog } from "./actions";
 
-export function HoursForm() {
-  const [state, formAction, isPending] = useActionState<
-    HourSubmitState | null,
-    FormData
-  >(submitHours, null);
+const activityTypes = [
+  "1-on-1 Tutoring",
+  "Group Workshop",
+  "Community Outreach",
+  "Retirement Home Visit",
+  "Event Support",
+  "Training / Meeting",
+  "Administrative",
+  "Other",
+];
+
+export default function HoursForm({ onSubmitted }: { onSubmitted: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(formData: FormData) {
+    setLoading(true);
+    setError("");
+    setSuccess(false);
+    const result = await submitHourLog(formData);
+    setLoading(false);
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setSuccess(true);
+      setTimeout(() => {
+        setSuccess(false);
+        onSubmitted();
+      }, 2000);
+    }
+  }
 
   return (
-    <form action={formAction} className="grid gap-4">
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="grid gap-1">
-          <span className="text-sm font-semibold text-slate-700">Date</span>
-          <input
-            type="date"
-            name="date"
-            required
-            className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+    <form action={handleSubmit} className="card">
+      <h3 className="text-lg font-bold text-gray-900 mb-5 flex items-center gap-2">
+        <Plus className="w-5 h-5 text-primary-600" /> Log Volunteer Hours
+      </h3>
+
+      <div className="grid sm:grid-cols-2 gap-5">
+        <div>
+          <label className="label flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-400" /> Date *
+          </label>
+          <input name="date" type="date" required className="input-field" />
+        </div>
+
+        <div>
+          <label className="label flex items-center gap-2">
+            <Clock className="w-4 h-4 text-gray-400" /> Hours *
+          </label>
+          <input name="hours" type="number" step="0.5" min="0.5" max="24" required className="input-field" placeholder="e.g. 2" />
+        </div>
+
+        <div>
+          <label className="label flex items-center gap-2">
+            <FileText className="w-4 h-4 text-gray-400" /> Activity Type *
+          </label>
+          <select name="activityType" required className="input-field">
+            <option value="">Select type...</option>
+            {activityTypes.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="label flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-gray-400" /> Location *
+          </label>
+          <input name="location" type="text" required className="input-field" placeholder="Where did you volunteer?" />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="label flex items-center gap-2">
+            <FileText className="w-4 h-4 text-gray-400" /> Notes / Description
+          </label>
+          <textarea
+            name="notes"
+            rows={3}
+            className="input-field resize-none"
+            placeholder="Describe what you did..."
           />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-semibold text-slate-700">
-            Number of hours
-          </span>
-          <input
-            type="number"
-            step="0.25"
-            min="0.25"
-            name="hours"
-            required
-            className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-            placeholder="e.g., 2"
-          />
-        </label>
+        </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="grid gap-1">
-          <span className="text-sm font-semibold text-slate-700">
-            Activity type
-          </span>
-          <input
-            name="activityType"
-            required
-            className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-            placeholder="Tutoring / workshop / outreach"
-          />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-semibold text-slate-700">Location</span>
-          <input
-            name="location"
-            required
-            className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-            placeholder="In-person / online / partner site"
-          />
-        </label>
-      </div>
+      {error && <p className="text-red-600 text-sm mt-4 bg-red-50 p-3 rounded-lg">{error}</p>}
 
-      <label className="grid gap-1">
-        <span className="text-sm font-semibold text-slate-700">
-          Notes / description
-        </span>
-        <textarea
-          name="notes"
-          required
-          rows={4}
-          className="rounded-2xl border border-blue-100 bg-white p-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-        />
-      </label>
+      {success && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-green-600 text-sm mt-4 bg-green-50 p-3 rounded-lg flex items-center gap-2"
+        >
+          <CheckCircle2 className="w-4 h-4" /> Hours submitted successfully! Awaiting admin approval.
+        </motion.p>
+      )}
 
       <button
-        disabled={isPending}
-        className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-600 px-5 text-base font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+        type="submit"
+        disabled={loading}
+        className="btn-primary mt-5 !py-2.5 flex items-center justify-center gap-2"
       >
-        {isPending ? "Submitting..." : "Submit hours for approval"}
+        {loading ? (
+          <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</>
+        ) : (
+          <><Plus className="w-4 h-4" /> Submit Hours</>
+        )}
       </button>
-
-      {state?.message ? (
-        <div
-          className={`rounded-2xl border p-4 text-sm font-semibold ${
-            state.ok
-              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-              : "border-rose-200 bg-rose-50 text-rose-900"
-          }`}
-          role="status"
-          aria-live="polite"
-        >
-          {state.message}
-        </div>
-      ) : null}
     </form>
   );
 }
-

@@ -1,57 +1,89 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { User, Mail, MessageCircle, CheckCircle2, Loader2, Send } from "lucide-react";
+import { submitContactMessage } from "./actions";
 
-export function ContactForm() {
-  const [sent, setSent] = useState(false);
+export default function ContactForm() {
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(formData: FormData) {
+    setLoading(true);
+    setError("");
+    const result = await submitContactMessage(formData);
+    setLoading(false);
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setSubmitted(true);
+    }
+  }
+
+  if (submitted) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="card text-center py-16"
+      >
+        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <CheckCircle2 className="w-10 h-10 text-green-600" />
+        </div>
+        <h3 className="text-2xl font-bold text-gray-900 mb-3">Message Sent!</h3>
+        <p className="text-gray-600">Thank you for reaching out. We&apos;ll get back to you as soon as possible.</p>
+      </motion.div>
+    );
+  }
 
   return (
-    <form
-      className="grid gap-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        setSent(true);
-      }}
-    >
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="grid gap-1">
-          <span className="text-sm font-semibold text-slate-700">Name</span>
-          <input
-            required
-            className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-          />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-semibold text-slate-700">Email</span>
-          <input
-            type="email"
-            required
-            className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-          />
-        </label>
-      </div>
-      <label className="grid gap-1">
-        <span className="text-sm font-semibold text-slate-700">Message</span>
-        <textarea
-          required
-          rows={5}
-          className="rounded-2xl border border-blue-100 bg-white p-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-        />
-      </label>
-      <button className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-600 px-5 text-base font-semibold text-white shadow-sm hover:bg-blue-700">
-        Send message
-      </button>
-      {sent ? (
-        <div
-          className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900"
-          role="status"
-          aria-live="polite"
-        >
-          Thanks! Please email us at <span className="font-extrabold">matthewsingh291@gmail.com</span>{" "}
-          and we’ll respond as soon as possible.
+    <form action={handleSubmit} className="card">
+      <div className="space-y-6">
+        <div>
+          <label className="label flex items-center gap-2">
+            <User className="w-4 h-4 text-gray-400" /> Your Name
+          </label>
+          <input name="name" type="text" required className="input-field" placeholder="Full name" />
         </div>
-      ) : null}
+
+        <div>
+          <label className="label flex items-center gap-2">
+            <Mail className="w-4 h-4 text-gray-400" /> Email Address
+          </label>
+          <input name="email" type="email" required className="input-field" placeholder="you@example.com" />
+        </div>
+
+        <div>
+          <label className="label flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-gray-400" /> Message
+          </label>
+          <textarea
+            name="message"
+            required
+            rows={6}
+            className="input-field resize-none"
+            placeholder="How can we help you?"
+          />
+        </div>
+      </div>
+
+      {error && (
+        <p className="text-red-600 text-sm mt-4 bg-red-50 p-3 rounded-lg">{error}</p>
+      )}
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="btn-primary w-full mt-6 !py-3.5 text-lg flex items-center justify-center gap-2"
+      >
+        {loading ? (
+          <><Loader2 className="w-5 h-5 animate-spin" /> Sending...</>
+        ) : (
+          <><Send className="w-5 h-5" /> Send Message</>
+        )}
+      </button>
     </form>
   );
 }
-

@@ -1,72 +1,76 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import type { RegisterState } from "@/app/volunteer/register/actions";
-import { volunteerRegister } from "@/app/volunteer/register/actions";
+import { useState } from "react";
+import Link from "next/link";
+import { Mail, Lock, Loader2, UserPlus } from "lucide-react";
+import { registerVolunteer } from "./actions";
 
-export function RegisterForm() {
-  const router = useRouter();
-  const [state, formAction, isPending] = useActionState<
-    RegisterState | null,
-    FormData
-  >(volunteerRegister, null);
+export default function RegisterForm() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (state?.ok) router.push("/volunteer/dashboard");
-  }, [state, router]);
+  async function handleSubmit(formData: FormData) {
+    setLoading(true);
+    setError("");
+    const result = await registerVolunteer(formData);
+    setLoading(false);
+    if (result?.error) {
+      setError(result.error);
+    }
+  }
 
   return (
-    <form action={formAction} className="grid gap-4">
-      <label className="grid gap-1">
-        <span className="text-sm font-semibold text-slate-700">
-          Name (as you’d like it displayed)
-        </span>
-        <input
-          name="name"
-          required
-          className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-        />
-      </label>
-      <label className="grid gap-1">
-        <span className="text-sm font-semibold text-slate-700">Email</span>
-        <input
-          type="email"
-          name="email"
-          required
-          className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-        />
-      </label>
-      <label className="grid gap-1">
-        <span className="text-sm font-semibold text-slate-700">Password</span>
-        <input
-          type="password"
-          name="password"
-          required
-          className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-        />
-      </label>
+    <form action={handleSubmit} className="card max-w-md mx-auto">
+      <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">Create Your Account</h2>
+      <p className="text-gray-500 text-sm text-center mb-6">
+        Use the email from your approved volunteer application.
+      </p>
+
+      <div className="space-y-5">
+        <div>
+          <label className="label flex items-center gap-2">
+            <Mail className="w-4 h-4 text-gray-400" /> Email (from your application)
+          </label>
+          <input name="email" type="email" required className="input-field" placeholder="you@example.com" />
+        </div>
+
+        <div>
+          <label className="label flex items-center gap-2">
+            <Lock className="w-4 h-4 text-gray-400" /> Password
+          </label>
+          <input name="password" type="password" required minLength={6} className="input-field" placeholder="At least 6 characters" />
+        </div>
+
+        <div>
+          <label className="label flex items-center gap-2">
+            <Lock className="w-4 h-4 text-gray-400" /> Confirm Password
+          </label>
+          <input name="confirmPassword" type="password" required minLength={6} className="input-field" placeholder="Confirm your password" />
+        </div>
+      </div>
+
+      {error && (
+        <p className="text-red-600 text-sm mt-4 bg-red-50 p-3 rounded-lg">{error}</p>
+      )}
+
       <button
-        disabled={isPending}
-        className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-600 px-5 text-base font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+        type="submit"
+        disabled={loading}
+        className="btn-primary w-full mt-6 !py-3 flex items-center justify-center gap-2"
       >
-        {isPending ? "Creating..." : "Create account"}
+        {loading ? (
+          <><Loader2 className="w-5 h-5 animate-spin" /> Creating account...</>
+        ) : (
+          <><UserPlus className="w-5 h-5" /> Create Account</>
+        )}
       </button>
 
-      {state?.message ? (
-        <div
-          className={`rounded-2xl border p-4 text-sm font-semibold ${
-            state.ok
-              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-              : "border-rose-200 bg-rose-50 text-rose-900"
-          }`}
-          role="status"
-          aria-live="polite"
-        >
-          {state.message}
-        </div>
-      ) : null}
+      <p className="mt-6 text-center text-gray-500 text-sm">
+        Already have an account?{" "}
+        <Link href="/volunteer/login" className="text-primary-600 font-semibold hover:text-primary-700">
+          Sign in
+        </Link>
+      </p>
     </form>
   );
 }
-

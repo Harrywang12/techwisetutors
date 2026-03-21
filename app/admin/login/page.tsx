@@ -1,23 +1,19 @@
-import { AdminLoginForm } from "@/app/admin/login/AdminLoginForm";
+import { Shield } from "lucide-react";
+import AdminLoginForm from "./AdminLoginForm";
 
 export default function AdminLoginPage() {
   return (
-    <main className="bg-gradient-to-b from-blue-50 via-white to-white">
-      <section className="mx-auto max-w-lg px-4 py-12">
-        <div className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-            Admin Login
-          </h1>
-          <p className="mt-3 text-slate-700">
-            Sign in to review applications, approve hours, manage bookings, and
-            create schedules.
-          </p>
-          <div className="mt-6">
-            <AdminLoginForm />
+    <section className="min-h-[80vh] flex items-center bg-gray-50 py-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 bg-gradient-to-br from-gray-700 to-gray-900 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <Shield className="w-7 h-7 text-white" />
           </div>
+          <h1 className="text-3xl font-black text-gray-900">Admin Portal</h1>
+          <p className="text-gray-500 mt-1">TechWiseTutors administration</p>
         </div>
-      </section>
-    </main>
+        <AdminLoginForm />
+      </div>
+    </section>
   );
 }
-

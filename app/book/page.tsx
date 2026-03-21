@@ -1,72 +1,60 @@
-import { BookingForm } from "@/app/book/BookingForm";
-import { getStaffMembers } from "@/app/book/actions";
+"use client";
 
-function formatSlotLabel(d: Date) {
-  const weekday = d.toLocaleDateString(undefined, { weekday: "long" });
-  const date = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-  return `${weekday} • ${date} • ${time}`;
-}
+import { Calendar, Clock, User } from "lucide-react";
+import AnimatedSection from "../components/AnimatedSection";
+import BookingForm from "./BookingForm";
 
-function generateSlots() {
-  const slots: { value: string; label: string }[] = [];
-  const now = new Date();
-
-  const daysToGenerate = 21;
-  const slotHours = (d: Date) => {
-    const day = d.getDay(); // 0 Sun ... 6 Sat
-    const isWeekend = day === 0 || day === 6;
-    if (isWeekend) {
-      // 12pm to 7pm
-      return [12, 13, 14, 15, 16, 17, 18];
-    }
-    // Mon-Fri after 5pm
-    return [17, 18, 19, 20];
-  };
-
-  for (let i = 0; i < daysToGenerate; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + i);
-    d.setMinutes(0, 0, 0);
-
-    for (const hour of slotHours(d)) {
-      const slot = new Date(d);
-      slot.setHours(hour, 0, 0, 0);
-      if (slot.getTime() < now.getTime() + 60 * 60 * 1000) continue; // at least 1 hour from now
-      slots.push({ value: slot.toISOString(), label: formatSlotLabel(slot) });
-    }
-  }
-  return slots;
-}
-
-export default async function BookPage() {
-  const staffMembers = await getStaffMembers();
-  const slots = generateSlots();
-
+export default function BookPage() {
   return (
-    <main className="bg-gradient-to-b from-blue-50 via-white to-white">
-      <section className="mx-auto max-w-3xl px-4 py-12">
-        <div className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-            Book a Session
-          </h1>
-          <p className="mt-3 text-slate-700">
-            Schedule a tech support session with TechWiseTutors. We offer
-            senior-friendly help with phones, tablets, laptops, apps, email, and
-            online safety.
+    <>
+      {/* Hero */}
+      <section className="relative py-24 bg-gradient-to-br from-primary-800 to-primary-900 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary-500/20 rounded-full blur-3xl" />
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+          <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 mb-6">
+            <Calendar className="w-4 h-4 text-primary-200" />
+            <span className="text-primary-100 text-sm font-medium">Schedule a Session</span>
+          </div>
+          <h1 className="text-5xl md:text-6xl font-black text-white mb-6">Book a Session</h1>
+          <p className="text-xl text-primary-100 max-w-2xl mx-auto">
+            Schedule a free one-on-one tech support session with one of our friendly volunteer tutors.
           </p>
-
-          <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-slate-700">
-            Availability: Monday–Friday after 5:00 PM • Saturday–Sunday 12:00 PM
-            to 7:00 PM
-          </div>
-
-          <div className="mt-6">
-            <BookingForm staffMembers={staffMembers} slots={slots} />
-          </div>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0">
+          <svg viewBox="0 0 1440 80" fill="none" className="w-full"><path d="M0,40 C480,80 960,0 1440,40 L1440,80 L0,80 Z" fill="white" /></svg>
         </div>
       </section>
-    </main>
+
+      {/* Info + Form */}
+      <section className="py-24 bg-white">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Availability Info */}
+          <AnimatedSection>
+            <div className="grid sm:grid-cols-3 gap-6 mb-12">
+              {[
+                { icon: Clock, title: "Weekday Hours", desc: "Monday — Friday\nAfter 5:00 PM" },
+                { icon: Calendar, title: "Weekend Hours", desc: "Saturday — Sunday\n12:00 PM — 7:00 PM" },
+                { icon: User, title: "Our Tutors", desc: "Maysam, Matthew, Arvin,\nBlair, Colin, Andy" },
+              ].map((item) => (
+                <div key={item.title} className="card text-center">
+                  <div className="w-12 h-12 bg-primary-50 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <item.icon className="w-6 h-6 text-primary-600" />
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-1">{item.title}</h3>
+                  <p className="text-gray-500 text-sm whitespace-pre-line">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </AnimatedSection>
+
+          {/* Form */}
+          <AnimatedSection delay={0.1}>
+            <BookingForm />
+          </AnimatedSection>
+        </div>
+      </section>
+    </>
   );
 }
-

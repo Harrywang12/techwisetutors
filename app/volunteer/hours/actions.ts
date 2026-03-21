@@ -1,59 +1,38 @@
 "use server";
 
-import { prisma } from "@/app/lib/db";
-import { requireSession } from "@/app/lib/requireAuth";
-import { z } from "zod";
+import { supabase } from "../../lib/db";
+import { getSession } from "../../lib/session";
 
-const HourSchema = z.object({
-  date: z.string().min(4),
-  hours: z.coerce.number().min(0.25).max(24),
-  activityType: z.string().min(2).max(200),
-  location: z.string().min(2).max(200),
-  notes: z.string().min(5).max(4000),
-});
+export async function submitHourLog(formData: FormData) {
+  const volunteerId = await getSession("volunteer");
+  if (!volunteerId) return { error: "Not authenticated." };
 
-export type HourSubmitState =
-  | { ok: true; message: string }
-  | { ok: false; message: string };
+  const date = formData.get("date") as string;
+  const hours = parseFloat(formData.get("hours") as string);
+  const activityType = formData.get("activityType") as string;
+  const location = formData.get("location") as string;
+  const notes = formData.get("notes") as string;
 
-export async function submitHours(
-  _prev: HourSubmitState | null,
-  formData: FormData,
-): Promise<HourSubmitState> {
-  const session = await requireSession();
-
-  const parsed = HourSchema.safeParse({
-    date: formData.get("date"),
-    hours: formData.get("hours"),
-    activityType: formData.get("activityType"),
-    location: formData.get("location"),
-    notes: formData.get("notes"),
-  });
-
-  if (!parsed.success) {
-    return { ok: false, message: "Please check the form fields and try again." };
+  if (!date || !hours || !activityType || !location) {
+    return { error: "Please fill in all required fields." };
   }
 
-  const d = new Date(parsed.data.date);
-  if (Number.isNaN(d.getTime())) {
-    return { ok: false, message: "Please enter a valid date." };
+  if (hours <= 0 || hours > 24) {
+    return { error: "Hours must be between 0 and 24." };
   }
 
-  await prisma.hourLog.create({
-    data: {
-      userId: session.userId,
-      date: d,
-      hours: parsed.data.hours,
-      activityType: parsed.data.activityType,
-      location: parsed.data.location,
-      notes: parsed.data.notes,
-    },
-  });
+  const { error } = await supabase
+    .from("hour_logs")
+    .insert({
+      volunteer_id: volunteerId,
+      date,
+      hours,
+      activity_type: activityType,
+      location,
+      notes: notes || "",
+    });
 
-  return {
-    ok: true,
-    message:
-      "Hours submitted! An administrator will review and approve them before they count toward your total.",
-  };
+  if (error) return { error: "Failed to log hours. Please try again." };
+
+  return { success: true };
 }
-

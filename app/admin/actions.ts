@@ -1,8 +1,9 @@
 "use server";
 
-import { clearSession } from "@/app/lib/session";
+import { redirect } from "next/navigation";
+import { clearSession } from "../lib/session";
 
-export async function adminLogout() {
-  await clearSession();
+export async function logoutAdmin() {
+  await clearSession("admin");
+  redirect("/admin/login");
 }
-

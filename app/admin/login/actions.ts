@@ -1,41 +1,28 @@
 "use server";
 
-import { prisma } from "@/app/lib/db";
-import { verifyPassword } from "@/app/lib/password";
-import { setSession } from "@/app/lib/session";
-import { z } from "zod";
-import { UserRole } from "@prisma/client";
+import { redirect } from "next/navigation";
+import { supabase } from "../../lib/db";
+import { verifyPassword } from "../../lib/password";
+import { setSession } from "../../lib/session";
 
-const LoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6).max(200),
-});
+export async function loginAdmin(formData: FormData) {
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
 
-export type AdminLoginState =
-  | { ok: true; message: string }
-  | { ok: false; message: string };
-
-export async function adminLogin(
-  _prev: AdminLoginState | null,
-  formData: FormData,
-): Promise<AdminLoginState> {
-  const parsed = LoginSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-  });
-  if (!parsed.success) return { ok: false, message: "Invalid login details." };
-
-  const email = parsed.data.email.toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !user.isActive || user.role !== UserRole.ADMIN) {
-    return { ok: false, message: "Invalid login." };
+  if (!email || !password) {
+    return { error: "Email and password are required." };
   }
 
-  const ok = await verifyPassword(parsed.data.password, user.passwordHash);
-  if (!ok) return { ok: false, message: "Invalid login." };
+  const { data: admin } = await supabase
+    .from("admins")
+    .select("*")
+    .eq("email", email)
+    .single();
 
-  await setSession({ userId: user.id, role: user.role });
+  if (!admin || !verifyPassword(password, admin.password)) {
+    return { error: "Invalid email or password." };
+  }
 
-  return { ok: true, message: "Logged in. Redirecting..." };
+  await setSession("admin", admin.id);
+  redirect("/admin");
 }
-

@@ -1,142 +1,170 @@
-import { prisma } from "@/app/lib/db";
-import { requireSession } from "@/app/lib/requireAuth";
-import { VolunteerPortalNav } from "@/app/volunteer/portal/VolunteerPortalNav";
-import { ReviewStatus } from "@prisma/client";
+import { Clock, CheckCircle2, Calendar, Activity } from "lucide-react";
+import { requireVolunteer } from "../../lib/requireAuth";
+import { supabase } from "../../lib/db";
+import VolunteerPortalNav from "../portal/VolunteerPortalNav";
 
 export default async function VolunteerDashboardPage() {
-  const session = await requireSession();
-  const now = new Date();
+  const volunteer = await requireVolunteer();
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    include: {
-      hourLogs: { orderBy: { createdAt: "desc" }, take: 5 },
-    },
-  });
+  const { data: hourLogs } = await supabase
+    .from("hour_logs")
+    .select("*")
+    .eq("volunteer_id", volunteer.id)
+    .order("created_at", { ascending: false })
+    .limit(5);
 
-  if (!user) return null;
+  const { data: allHours } = await supabase
+    .from("hour_logs")
+    .select("hours")
+    .eq("volunteer_id", volunteer.id);
 
-  const totals = await prisma.hourLog.groupBy({
-    by: ["status"],
-    where: { userId: user.id },
-    _sum: { hours: true },
-  });
+  const { data: approvedHoursData } = await supabase
+    .from("hour_logs")
+    .select("hours")
+    .eq("volunteer_id", volunteer.id)
+    .eq("status", "approved");
 
-  const sumFor = (status: ReviewStatus) =>
-    totals.find((t) => t.status === status)?._sum.hours ?? 0;
+  const totalLogged = (allHours || []).reduce((sum, h) => sum + h.hours, 0);
+  const totalApproved = (approvedHoursData || []).reduce((sum, h) => sum + h.hours, 0);
 
-  const totalLogged = totals.reduce((acc, t) => acc + (t._sum.hours ?? 0), 0);
-  const totalApproved = sumFor(ReviewStatus.APPROVED);
+  const { data: assignments } = await supabase
+    .from("schedule_assignments")
+    .select("id, event_id, schedule_events(*)")
+    .eq("volunteer_id", volunteer.id);
 
-  const upcomingAssignments = await prisma.shiftAssignment.findMany({
-    where: { userId: user.id, shift: { startAt: { gt: now } } },
-    include: { shift: true },
-    orderBy: { shift: { startAt: "asc" } },
-    take: 4,
-  });
-  const upcoming = upcomingAssignments.map((a) => a.shift);
+  type EventData = { title: string; date: string; start_time: string; end_time: string; location: string };
+
+  const mapped = (assignments || [])
+    .filter((a) => a.schedule_events)
+    .map((a) => ({ ...a, event: a.schedule_events as unknown as EventData }));
+
+  const sortedAssignments = mapped.sort((a, b) => a.event.date.localeCompare(b.event.date));
+
+  const upcomingEvents = sortedAssignments
+    .filter((a) => a.event.date >= new Date().toISOString().split("T")[0])
+    .slice(0, 5);
 
   return (
-    <main className="bg-gradient-to-b from-blue-50 via-white to-white">
-      <section className="mx-auto max-w-6xl px-4 py-10">
-        <VolunteerPortalNav role={session.role} />
+    <>
+      <VolunteerPortalNav volunteerName={volunteer.full_name} />
 
-        <div className="mt-6 grid gap-6 md:grid-cols-3">
-          <div className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm md:col-span-2">
-            <h1 className="text-2xl font-extrabold text-slate-900">
-              Welcome, {user.name}
-            </h1>
-            <p className="mt-2 text-slate-700">
-              Here’s your overview, upcoming shifts/sessions, and recent activity.
-            </p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* Welcome */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-black text-gray-900">
+            Welcome back, {volunteer.full_name.split(" ")[0]}!
+          </h1>
+          <p className="text-gray-500 mt-1">Here&apos;s your volunteer overview.</p>
+        </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              {[
-                { k: "Total hours logged", v: totalLogged.toFixed(1) },
-                { k: "Total hours approved", v: totalApproved.toFixed(1) },
-                { k: "Pending hours", v: sumFor(ReviewStatus.PENDING).toFixed(1) },
-              ].map((x) => (
-                <div
-                  key={x.k}
-                  className="rounded-2xl border border-blue-100 bg-blue-50 p-4"
-                >
-                  <div className="text-sm font-semibold text-slate-700">
-                    {x.k}
-                  </div>
-                  <div className="mt-2 text-3xl font-extrabold text-blue-800">
-                    {x.v}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <h2 className="mt-8 text-xl font-bold text-slate-900">
-              Upcoming shifts / sessions
-            </h2>
-            <div className="mt-3 grid gap-3">
-              {upcoming.length ? (
-                upcoming.map((s) => (
-                  <div
-                    key={s.id}
-                    className="rounded-2xl border border-blue-100 bg-white p-4"
-                  >
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="font-extrabold text-slate-900">
-                        {s.title}
-                      </div>
-                      <div className="text-sm font-semibold text-slate-700">
-                        {s.startAt.toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="mt-1 text-sm text-slate-700">
-                      Location: <span className="font-semibold">{s.location}</span>
-                    </div>
-                    {s.details ? (
-                      <div className="mt-2 text-sm text-slate-600">{s.details}</div>
-                    ) : null}
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-slate-700">
-                  No upcoming assignments yet.
-                </div>
-              )}
+        {/* Stats */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <div className="card">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
+                <Clock className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{totalLogged}</div>
+                <div className="text-sm text-gray-500">Total Hours Logged</div>
+              </div>
             </div>
           </div>
-
-          <div className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-slate-900">Recent activity</h2>
-            <div className="mt-3 grid gap-3">
-              {user.hourLogs.length ? (
-                user.hourLogs.map((h) => (
-                  <div
-                    key={h.id}
-                    className="rounded-2xl border border-blue-100 bg-white p-4"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-extrabold text-slate-900">
-                        {h.hours.toFixed(1)} hr • {h.activityType}
-                      </div>
-                      <div className="text-xs font-extrabold text-blue-800">
-                        {h.status}
-                      </div>
-                    </div>
-                    <div className="mt-1 text-xs font-semibold text-slate-600">
-                      {h.date.toLocaleDateString()} • {h.location}
-                    </div>
-                    <div className="mt-2 text-sm text-slate-700">{h.notes}</div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-slate-700">
-                  No hour logs yet.
-                </div>
-              )}
+          <div className="card">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{totalApproved}</div>
+                <div className="text-sm text-gray-500">Approved Hours</div>
+              </div>
+            </div>
+          </div>
+          <div className="card">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{upcomingEvents.length}</div>
+                <div className="text-sm text-gray-500">Upcoming Shifts</div>
+              </div>
+            </div>
+          </div>
+          <div className="card">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center">
+                <Activity className="w-6 h-6 text-orange-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{(hourLogs || []).length}</div>
+                <div className="text-sm text-gray-500">Recent Activities</div>
+              </div>
             </div>
           </div>
         </div>
-      </section>
-    </main>
+
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Upcoming Sessions */}
+          <div className="card">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary-600" /> Upcoming Sessions
+            </h2>
+            {upcomingEvents.length === 0 ? (
+              <p className="text-gray-500 text-sm py-4">No upcoming sessions assigned.</p>
+            ) : (
+              <div className="space-y-3">
+                {upcomingEvents.map((a) => (
+                    <div key={a.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                      <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center shrink-0">
+                        <Calendar className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-gray-900 text-sm">{a.event.title}</div>
+                        <div className="text-gray-500 text-xs">
+                          {a.event.date} &middot; {a.event.start_time} - {a.event.end_time}
+                        </div>
+                        <div className="text-gray-500 text-xs">{a.event.location}</div>
+                      </div>
+                    </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recent Activity */}
+          <div className="card">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary-600" /> Recent Hour Logs
+            </h2>
+            {(hourLogs || []).length === 0 ? (
+              <p className="text-gray-500 text-sm py-4">No hours logged yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {(hourLogs || []).map((log) => (
+                  <div key={log.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                    <div>
+                      <div className="font-semibold text-gray-900 text-sm">{log.activity_type}</div>
+                      <div className="text-gray-500 text-xs">{log.date} &middot; {log.location}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-gray-900 text-sm">{log.hours}h</div>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        log.status === "approved" ? "bg-green-100 text-green-700" :
+                        log.status === "rejected" ? "bg-red-100 text-red-700" :
+                        "bg-yellow-100 text-yellow-700"
+                      }`}>
+                        {log.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
-

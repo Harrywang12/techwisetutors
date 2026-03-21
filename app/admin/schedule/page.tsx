@@ -1,155 +1,182 @@
-import { requireAdmin } from "@/app/lib/requireAuth";
-import { AdminNav } from "@/app/admin/AdminNav";
-import { prisma } from "@/app/lib/db";
-import { UserRole } from "@prisma/client";
-import { assignVolunteer, createShift, unassignVolunteer } from "@/app/admin/schedule/actions";
+import { requireAdmin } from "../../lib/requireAuth";
+import { supabase } from "../../lib/db";
+import AdminNav from "../AdminNav";
+import { Calendar, MapPin, Clock, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { createEvent, deleteEvent, assignVolunteer, removeAssignment } from "./actions";
 
 export default async function AdminSchedulePage() {
   await requireAdmin();
 
-  const [shifts, volunteers] = await Promise.all([
-    prisma.shift.findMany({
-      include: { assignments: { include: { user: true } } },
-      orderBy: { startAt: "asc" },
-      take: 50,
-    }),
-    prisma.user.findMany({
-      where: { role: UserRole.VOLUNTEER, isActive: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  const { data: eventsData } = await supabase
+    .from("schedule_events")
+    .select("*, schedule_assignments(id, volunteer_id, volunteers(id, full_name))")
+    .order("date", { ascending: true });
+
+  const { data: volunteersData } = await supabase
+    .from("volunteers")
+    .select("id, full_name")
+    .eq("status", "active")
+    .order("full_name", { ascending: true });
+
+  const events = (eventsData || []).map((e) => ({
+    ...e,
+    assignments: (e.schedule_assignments || []).map((a: { id: string; volunteer_id: string; volunteers: { id: string; full_name: string } }) => ({
+      id: a.id,
+      volunteerId: a.volunteer_id,
+      volunteer: a.volunteers,
+    })),
+  }));
+
+  const volunteers = volunteersData || [];
+
+  const today = new Date().toISOString().split("T")[0];
+  const upcoming = events.filter((e) => e.date >= today);
+  const past = events.filter((e) => e.date < today);
 
   return (
-    <main className="bg-gradient-to-b from-blue-50 via-white to-white">
-      <section className="mx-auto max-w-6xl px-4 py-10">
-        <AdminNav />
+    <>
+      <AdminNav />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-black text-gray-900">Manage Schedule</h1>
+          <p className="text-gray-500 mt-1">Create events and assign volunteers to shifts.</p>
+        </div>
 
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
-          <div className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm">
-            <h1 className="text-2xl font-extrabold text-slate-900">Manage Schedule</h1>
-            <p className="mt-2 text-slate-700">
-              Create upcoming event shifts and assign volunteers. Volunteers will see assignments in their dashboard.
-            </p>
-
-            <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
-              <div className="text-sm font-extrabold text-slate-900">Create shift</div>
-              <form action={createShift} className="mt-3 grid gap-3">
-                <input
-                  name="title"
-                  required
-                  placeholder="Shift title (e.g., Retirement Home Workshop)"
-                  className="h-10 rounded-2xl border border-blue-100 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold text-slate-700">Start</span>
-                    <input
-                      type="datetime-local"
-                      name="startAt"
-                      required
-                      className="h-10 rounded-2xl border border-blue-100 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                    />
-                  </label>
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold text-slate-700">End</span>
-                    <input
-                      type="datetime-local"
-                      name="endAt"
-                      required
-                      className="h-10 rounded-2xl border border-blue-100 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                    />
-                  </label>
-                </div>
-                <input
-                  name="location"
-                  required
-                  placeholder="Location (or Online)"
-                  className="h-10 rounded-2xl border border-blue-100 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                />
-                <textarea
-                  name="details"
-                  rows={3}
-                  placeholder="Details (optional)"
-                  className="rounded-2xl border border-blue-100 bg-white p-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                />
-                <button className="h-10 rounded-2xl bg-blue-600 text-sm font-extrabold text-white hover:bg-blue-700">
-                  Create shift
-                </button>
-              </form>
+        {/* Create Event Form */}
+        <div className="card mb-10">
+          <h2 className="text-lg font-bold text-gray-900 mb-5 flex items-center gap-2">
+            <Plus className="w-5 h-5 text-primary-600" /> Create New Event
+          </h2>
+          <form action={createEvent}>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div>
+                <label className="label">Event Title *</label>
+                <input name="title" type="text" required className="input-field" placeholder="e.g. Community Workshop" />
+              </div>
+              <div>
+                <label className="label">Date *</label>
+                <input name="date" type="date" required className="input-field" />
+              </div>
+              <div>
+                <label className="label">Start Time *</label>
+                <input name="startTime" type="time" required className="input-field" />
+              </div>
+              <div>
+                <label className="label">End Time *</label>
+                <input name="endTime" type="time" required className="input-field" />
+              </div>
+              <div>
+                <label className="label">Location *</label>
+                <input name="location" type="text" required className="input-field" placeholder="e.g. Senior Sunrise Retirement Home" />
+              </div>
+              <div>
+                <label className="label">Description</label>
+                <input name="description" type="text" className="input-field" placeholder="Optional details" />
+              </div>
             </div>
-          </div>
+            <button type="submit" className="btn-primary mt-5 !py-2.5 flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Create Event
+            </button>
+          </form>
+        </div>
 
-          <div className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm">
-            <h2 className="text-2xl font-extrabold text-slate-900">Upcoming shifts</h2>
-            <div className="mt-4 grid gap-4">
-              {shifts.length ? (
-                shifts.map((s) => (
-                  <div key={s.id} className="rounded-2xl border border-blue-100 bg-white p-4">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="font-extrabold text-slate-900">{s.title}</div>
-                      <div className="text-xs font-extrabold text-blue-800">
-                        {s.startAt.toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="mt-1 text-sm text-slate-700">
-                      Location: <span className="font-semibold">{s.location}</span>
-                    </div>
-                    {s.details ? (
-                      <div className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">
-                        {s.details}
-                      </div>
-                    ) : null}
+        {/* Upcoming Events */}
+        <div className="mb-10">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Upcoming Events ({upcoming.length})</h2>
+          {upcoming.length === 0 ? (
+            <div className="card text-center py-12">
+              <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">No upcoming events.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {upcoming.map((event) => {
+                const assignedIds = event.assignments.map((a: { volunteerId: string }) => a.volunteerId);
+                const available = volunteers.filter((v) => !assignedIds.includes(v.id));
 
-                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="text-xs font-extrabold text-slate-900">Assigned volunteers</div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {s.assignments.length ? (
-                          s.assignments.map((a) => (
-                            <form key={a.id} action={unassignVolunteer}>
-                              <input type="hidden" name="shiftId" value={s.id} />
-                              <input type="hidden" name="userId" value={a.userId} />
-                              <button className="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-extrabold text-blue-800 hover:bg-blue-50">
-                                {a.user.name} (remove)
-                              </button>
-                            </form>
-                          ))
-                        ) : (
-                          <div className="text-xs font-semibold text-slate-700">
-                            None assigned yet.
-                          </div>
-                        )}
+                return (
+                  <div key={event.id} className="card border-l-4 border-primary-500">
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4">
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-lg">{event.title}</h3>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 mt-1">
+                          <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {event.date}</span>
+                          <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {event.start_time} - {event.end_time}</span>
+                          <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {event.location}</span>
+                        </div>
+                        {event.description && <p className="text-gray-500 text-sm mt-2">{event.description}</p>}
                       </div>
-
-                      <form action={assignVolunteer} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <input type="hidden" name="shiftId" value={s.id} />
-                        <select
-                          name="userId"
-                          className="h-10 flex-1 rounded-2xl border border-blue-100 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                          defaultValue={volunteers[0]?.id ?? ""}
-                        >
-                          {volunteers.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.name} ({v.email})
-                            </option>
-                          ))}
-                        </select>
-                        <button className="h-10 rounded-2xl bg-emerald-600 px-4 text-sm font-extrabold text-white hover:bg-emerald-700">
-                          Assign
+                      <form action={async () => { "use server"; await deleteEvent(event.id); }}>
+                        <button type="submit" className="text-xs font-medium px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1">
+                          <Trash2 className="w-3.5 h-3.5" /> Delete
                         </button>
                       </form>
                     </div>
+
+                    {/* Assigned Volunteers */}
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <h4 className="font-semibold text-gray-900 text-sm mb-3">
+                        Assigned Volunteers ({event.assignments.length})
+                      </h4>
+
+                      {event.assignments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {event.assignments.map((a: { id: string; volunteer: { full_name: string } }) => (
+                            <div key={a.id} className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg text-sm border border-gray-200">
+                              <span className="font-medium text-gray-700">{a.volunteer.full_name}</span>
+                              <form action={async () => { "use server"; await removeAssignment(a.id); }}>
+                                <button type="submit" className="text-gray-400 hover:text-red-500 transition-colors ml-1">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </form>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {available.length > 0 && (
+                        <form action={async (formData: FormData) => {
+                          "use server";
+                          const volunteerId = formData.get("volunteerId") as string;
+                          if (volunteerId) await assignVolunteer(event.id, volunteerId);
+                        }} className="flex items-center gap-2">
+                          <select name="volunteerId" className="input-field !py-1.5 text-sm flex-1">
+                            <option value="">Assign a volunteer...</option>
+                            {available.map((v) => (
+                              <option key={v.id} value={v.id}>{v.full_name}</option>
+                            ))}
+                          </select>
+                          <button type="submit" className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors">
+                            <UserPlus className="w-4 h-4" /> Assign
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-slate-700">
-                  No shifts created yet.
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Past Events */}
+        {past.length > 0 && (
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Past Events ({past.length})</h2>
+            <div className="space-y-3">
+              {past.map((event) => (
+                <div key={event.id} className="card !p-4 flex items-center justify-between opacity-70">
+                  <div>
+                    <div className="font-semibold text-gray-900 text-sm">{event.title}</div>
+                    <div className="text-gray-500 text-xs">{event.date} &middot; {event.location} &middot; {event.assignments.length} volunteers</div>
+                  </div>
+                  <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-1 rounded-full">Past</span>
                 </div>
-              )}
+              ))}
             </div>
           </div>
-        </div>
-      </section>
-    </main>
+        )}
+      </div>
+    </>
   );
 }
-

@@ -1,82 +1,106 @@
 "use client";
 
-import { useActionState } from "react";
-import type { ProfileState } from "@/app/volunteer/profile/actions";
-import { updateProfile } from "@/app/volunteer/profile/actions";
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { User, Mail, GraduationCap, Clock, Loader2, Save, CheckCircle2 } from "lucide-react";
+import { updateVolunteerProfile } from "./actions";
 
-export function ProfileForm(props: {
-  name: string;
+interface ProfileData {
+  fullName: string;
   email: string;
   school: string;
+  grade: string;
   availability: string;
-}) {
-  const [state, formAction, isPending] = useActionState<
-    ProfileState | null,
-    FormData
-  >(updateProfile, null);
+}
+
+export default function ProfileForm({ profile }: { profile: ProfileData }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(formData: FormData) {
+    setLoading(true);
+    setError("");
+    setSuccess(false);
+    const result = await updateVolunteerProfile(formData);
+    setLoading(false);
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    }
+  }
 
   return (
-    <form action={formAction} className="grid gap-4">
-      <label className="grid gap-1">
-        <span className="text-sm font-semibold text-slate-700">Name</span>
-        <input
-          name="name"
-          required
-          defaultValue={props.name}
-          className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-        />
-      </label>
+    <form action={handleSubmit} className="card">
+      <h3 className="text-lg font-bold text-gray-900 mb-6">Edit Profile</h3>
 
-      <label className="grid gap-1">
-        <span className="text-sm font-semibold text-slate-700">Email</span>
-        <input
-          name="email"
-          readOnly
-          value={props.email}
-          className="h-11 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-slate-700"
-        />
-      </label>
+      <div className="grid sm:grid-cols-2 gap-6">
+        <div>
+          <label className="label flex items-center gap-2">
+            <User className="w-4 h-4 text-gray-400" /> Full Name
+          </label>
+          <input name="fullName" type="text" required defaultValue={profile.fullName} className="input-field" />
+        </div>
 
-      <label className="grid gap-1">
-        <span className="text-sm font-semibold text-slate-700">School</span>
-        <input
-          name="school"
-          defaultValue={props.school}
-          className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-        />
-      </label>
+        <div>
+          <label className="label flex items-center gap-2">
+            <Mail className="w-4 h-4 text-gray-400" /> Email
+          </label>
+          <input name="email" type="email" required defaultValue={profile.email} className="input-field" />
+        </div>
 
-      <label className="grid gap-1">
-        <span className="text-sm font-semibold text-slate-700">Availability</span>
-        <textarea
-          name="availability"
-          rows={4}
-          defaultValue={props.availability}
-          className="rounded-2xl border border-blue-100 bg-white p-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-        />
-      </label>
+        <div>
+          <label className="label flex items-center gap-2">
+            <GraduationCap className="w-4 h-4 text-gray-400" /> School
+          </label>
+          <input name="school" type="text" required defaultValue={profile.school} className="input-field" />
+        </div>
+
+        <div>
+          <label className="label flex items-center gap-2">
+            <Clock className="w-4 h-4 text-gray-400" /> Availability
+          </label>
+          <select name="availability" required defaultValue={profile.availability} className="input-field">
+            {["Weekday evenings", "Weekend afternoons", "Both weekday & weekend", "Flexible"].map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="label flex items-center gap-2">
+            <GraduationCap className="w-4 h-4 text-gray-400" /> Grade
+          </label>
+          <input type="text" disabled value={profile.grade} className="input-field bg-gray-50 text-gray-500 cursor-not-allowed" />
+          <p className="text-xs text-gray-400 mt-1">Contact admin to update grade.</p>
+        </div>
+      </div>
+
+      {error && <p className="text-red-600 text-sm mt-4 bg-red-50 p-3 rounded-lg">{error}</p>}
+
+      {success && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-green-600 text-sm mt-4 bg-green-50 p-3 rounded-lg flex items-center gap-2"
+        >
+          <CheckCircle2 className="w-4 h-4" /> Profile updated successfully!
+        </motion.p>
+      )}
 
       <button
-        disabled={isPending}
-        className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-600 px-5 text-base font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+        type="submit"
+        disabled={loading}
+        className="btn-primary mt-6 !py-2.5 flex items-center justify-center gap-2"
       >
-        {isPending ? "Saving..." : "Save changes"}
+        {loading ? (
+          <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+        ) : (
+          <><Save className="w-4 h-4" /> Save Changes</>
+        )}
       </button>
-
-      {state?.message ? (
-        <div
-          className={`rounded-2xl border p-4 text-sm font-semibold ${
-            state.ok
-              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-              : "border-rose-200 bg-rose-50 text-rose-900"
-          }`}
-          role="status"
-          aria-live="polite"
-        >
-          {state.message}
-        </div>
-      ) : null}
     </form>
   );
 }
-

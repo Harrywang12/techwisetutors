@@ -1,66 +1,53 @@
 "use server";
 
-import { prisma } from "@/app/lib/db";
-import { requireAdmin } from "@/app/lib/requireAuth";
-import { z } from "zod";
+import { revalidatePath } from "next/cache";
+import { supabase } from "../../lib/db";
 
-const ShiftSchema = z.object({
-  title: z.string().min(2).max(200),
-  startAt: z.string().datetime(),
-  endAt: z.string().datetime(),
-  location: z.string().min(2).max(200),
-  details: z.string().max(4000).optional().or(z.literal("")),
-});
+export async function createEvent(formData: FormData) {
+  const title = formData.get("title") as string;
+  const date = formData.get("date") as string;
+  const startTime = formData.get("startTime") as string;
+  const endTime = formData.get("endTime") as string;
+  const location = formData.get("location") as string;
+  const description = formData.get("description") as string;
 
-export async function createShift(formData: FormData) {
-  await requireAdmin();
-  const parsed = ShiftSchema.safeParse({
-    title: formData.get("title"),
-    startAt: formData.get("startAt"),
-    endAt: formData.get("endAt"),
-    location: formData.get("location"),
-    details: formData.get("details"),
-  });
-  if (!parsed.success) return;
-  await prisma.shift.create({
-    data: {
-      title: parsed.data.title,
-      startAt: new Date(parsed.data.startAt),
-      endAt: new Date(parsed.data.endAt),
-      location: parsed.data.location,
-      details: parsed.data.details || null,
-    },
-  });
+  if (!title || !date || !startTime || !endTime || !location) {
+    return;
+  }
+
+  await supabase
+    .from("schedule_events")
+    .insert({
+      title,
+      date,
+      start_time: startTime,
+      end_time: endTime,
+      location,
+      description: description || "",
+    });
+
+  revalidatePath("/admin/schedule");
 }
 
-const AssignSchema = z.object({
-  shiftId: z.string().min(5),
-  userId: z.string().min(5),
-});
-
-export async function assignVolunteer(formData: FormData) {
-  await requireAdmin();
-  const parsed = AssignSchema.safeParse({
-    shiftId: formData.get("shiftId"),
-    userId: formData.get("userId"),
-  });
-  if (!parsed.success) return;
-  await prisma.shiftAssignment.upsert({
-    where: { shiftId_userId: { shiftId: parsed.data.shiftId, userId: parsed.data.userId } },
-    create: { shiftId: parsed.data.shiftId, userId: parsed.data.userId },
-    update: {},
-  });
+export async function deleteEvent(id: string) {
+  await supabase
+    .from("schedule_events")
+    .delete()
+    .eq("id", id);
+  revalidatePath("/admin/schedule");
 }
 
-export async function unassignVolunteer(formData: FormData) {
-  await requireAdmin();
-  const parsed = AssignSchema.safeParse({
-    shiftId: formData.get("shiftId"),
-    userId: formData.get("userId"),
-  });
-  if (!parsed.success) return;
-  await prisma.shiftAssignment.delete({
-    where: { shiftId_userId: { shiftId: parsed.data.shiftId, userId: parsed.data.userId } },
-  });
+export async function assignVolunteer(eventId: string, volunteerId: string) {
+  await supabase
+    .from("schedule_assignments")
+    .insert({ event_id: eventId, volunteer_id: volunteerId });
+  revalidatePath("/admin/schedule");
 }
 
+export async function removeAssignment(id: string) {
+  await supabase
+    .from("schedule_assignments")
+    .delete()
+    .eq("id", id);
+  revalidatePath("/admin/schedule");
+}

@@ -1,56 +1,31 @@
 "use server";
 
-import { prisma } from "@/app/lib/db";
-import { z } from "zod";
+import { supabase } from "../lib/db";
 
-const staffMembers = ["Maysam", "Matthew", "Arvin", "Blair", "Colin", "Andy"] as const;
+export async function submitBooking(formData: FormData) {
+  const name = formData.get("name") as string;
+  const email = formData.get("email") as string;
+  const staffMember = formData.get("staffMember") as string;
+  const date = formData.get("date") as string;
+  const timeSlot = formData.get("timeSlot") as string;
+  const helpNeeded = formData.get("helpNeeded") as string;
 
-const BookingSchema = z.object({
-  staffMember: z.enum(staffMembers),
-  scheduledAt: z.string().datetime(),
-  requesterName: z.string().min(2).max(100),
-  requesterEmail: z.string().email(),
-  helpWith: z.string().min(5).max(2000),
-});
-
-export type BookingActionState =
-  | { ok: true; message: string }
-  | { ok: false; message: string };
-
-export async function createBooking(
-  _prev: BookingActionState | null,
-  formData: FormData,
-): Promise<BookingActionState> {
-  const parsed = BookingSchema.safeParse({
-    staffMember: formData.get("staffMember"),
-    scheduledAt: formData.get("scheduledAt"),
-    requesterName: formData.get("requesterName"),
-    requesterEmail: formData.get("requesterEmail"),
-    helpWith: formData.get("helpWith"),
-  });
-
-  if (!parsed.success) {
-    return { ok: false, message: "Please check the form fields and try again." };
+  if (!name || !email || !staffMember || !date || !timeSlot || !helpNeeded) {
+    return { error: "All fields are required." };
   }
 
-  await prisma.booking.create({
-    data: {
-      staffMember: parsed.data.staffMember,
-      scheduledAt: new Date(parsed.data.scheduledAt),
-      requesterName: parsed.data.requesterName,
-      requesterEmail: parsed.data.requesterEmail,
-      helpWith: parsed.data.helpWith,
-    },
-  });
+  const { error } = await supabase
+    .from("bookings")
+    .insert({
+      name,
+      email,
+      staff_member: staffMember,
+      date,
+      time_slot: timeSlot,
+      help_needed: helpNeeded,
+    });
 
-  return {
-    ok: true,
-    message:
-      "Thanks! Your session request has been booked. We’ll follow up by email soon.",
-  };
+  if (error) return { error: "Failed to submit booking. Please try again." };
+
+  return { success: true };
 }
-
-export async function getStaffMembers() {
-  return [...staffMembers];
-}
-

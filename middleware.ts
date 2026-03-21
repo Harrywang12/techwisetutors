@@ -1,54 +1,26 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { jwtVerify } from "jose";
+import { NextRequest, NextResponse } from "next/server";
 
-const COOKIE_NAME = "twt_session";
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-async function getRole(req: NextRequest): Promise<"ADMIN" | "VOLUNTEER" | null> {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) return null;
-  const token = req.cookies.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
-    const role = payload.role;
-    if (role === "ADMIN" || role === "VOLUNTEER") return role;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
-  const isAdminLogin = pathname === "/admin/login";
-
-  const isVolunteerProtected =
-    pathname === "/volunteer/dashboard" ||
-    pathname.startsWith("/volunteer/dashboard/") ||
-    pathname === "/volunteer/hours" ||
-    pathname.startsWith("/volunteer/hours/") ||
-    pathname === "/volunteer/schedule" ||
-    pathname.startsWith("/volunteer/schedule/") ||
-    pathname === "/volunteer/profile" ||
-    pathname.startsWith("/volunteer/profile/");
-
-  if (isAdminArea && !isAdminLogin) {
-    const role = await getRole(req);
-    if (role !== "ADMIN") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/admin/login";
-      return NextResponse.redirect(url);
+  // Protect volunteer portal routes
+  if (
+    pathname.startsWith("/volunteer/dashboard") ||
+    pathname.startsWith("/volunteer/schedule") ||
+    pathname.startsWith("/volunteer/hours") ||
+    pathname.startsWith("/volunteer/profile")
+  ) {
+    const session = request.cookies.get("volunteer_session");
+    if (!session) {
+      return NextResponse.redirect(new URL("/volunteer/login", request.url));
     }
   }
 
-  if (isVolunteerProtected) {
-    const role = await getRole(req);
-    if (!role) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/volunteer/login";
-      return NextResponse.redirect(url);
+  // Protect admin routes (except login)
+  if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
+    const session = request.cookies.get("admin_session");
+    if (!session) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
     }
   }
 
@@ -56,6 +28,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/volunteer/:path*"],
+  matcher: ["/volunteer/dashboard/:path*", "/volunteer/schedule/:path*", "/volunteer/hours/:path*", "/volunteer/profile/:path*", "/admin/:path*"],
 };
-

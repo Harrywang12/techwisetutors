@@ -1,62 +1,45 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import type { AdminLoginState } from "@/app/admin/login/actions";
-import { adminLogin } from "@/app/admin/login/actions";
+import { useState } from "react";
+import { Mail, Lock, Loader2, LogIn } from "lucide-react";
+import { loginAdmin } from "./actions";
 
-export function AdminLoginForm() {
-  const router = useRouter();
-  const [state, formAction, isPending] = useActionState<
-    AdminLoginState | null,
-    FormData
-  >(adminLogin, null);
+export default function AdminLoginForm() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (state?.ok) router.push("/admin");
-  }, [state, router]);
+  async function handleSubmit(formData: FormData) {
+    setLoading(true);
+    setError("");
+    const result = await loginAdmin(formData);
+    setLoading(false);
+    if (result?.error) setError(result.error);
+  }
 
   return (
-    <form action={formAction} className="grid gap-4">
-      <label className="grid gap-1">
-        <span className="text-sm font-semibold text-slate-700">Admin email</span>
-        <input
-          type="email"
-          name="email"
-          required
-          className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-        />
-      </label>
-      <label className="grid gap-1">
-        <span className="text-sm font-semibold text-slate-700">Password</span>
-        <input
-          type="password"
-          name="password"
-          required
-          className="h-11 rounded-2xl border border-blue-100 bg-white px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-        />
-      </label>
-      <button
-        disabled={isPending}
-        className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-600 px-5 text-base font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
-      >
-        {isPending ? "Signing in..." : "Sign in"}
-      </button>
+    <form action={handleSubmit} className="card max-w-md mx-auto">
+      <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Admin Login</h2>
 
-      {state?.message ? (
-        <div
-          className={`rounded-2xl border p-4 text-sm font-semibold ${
-            state.ok
-              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-              : "border-rose-200 bg-rose-50 text-rose-900"
-          }`}
-          role="status"
-          aria-live="polite"
-        >
-          {state.message}
+      <div className="space-y-5">
+        <div>
+          <label className="label flex items-center gap-2">
+            <Mail className="w-4 h-4 text-gray-400" /> Email
+          </label>
+          <input name="email" type="email" required className="input-field" placeholder="admin@techwisetutors.org" />
         </div>
-      ) : null}
+        <div>
+          <label className="label flex items-center gap-2">
+            <Lock className="w-4 h-4 text-gray-400" /> Password
+          </label>
+          <input name="password" type="password" required className="input-field" placeholder="Your password" />
+        </div>
+      </div>
+
+      {error && <p className="text-red-600 text-sm mt-4 bg-red-50 p-3 rounded-lg">{error}</p>}
+
+      <button type="submit" disabled={loading} className="btn-primary w-full mt-6 !py-3 flex items-center justify-center gap-2">
+        {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Signing in...</> : <><LogIn className="w-5 h-5" /> Sign In</>}
+      </button>
     </form>
   );
 }
-
