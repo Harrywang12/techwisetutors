@@ -73,6 +73,28 @@
     transform: translateY(-2px);
   }
 
+  .btn-secondary-light {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    font-size: 1rem;
+    color: white;
+    background: transparent;
+    border: 2px solid white;
+    border-radius: 9999px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .btn-secondary-light:hover {
+    background: white/10;
+    border-color: white;
+    transform: translateY(-2px);
+  }
+
   .card {
     background: white;
     border-radius: 1rem;

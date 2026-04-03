@@ -113,7 +113,7 @@ export default function HomePage() {
                 <Link href="/book" className="btn-primary text-lg !py-3.5 !px-8 flex items-center gap-2">
                   Book a Session <Calendar className="w-5 h-5" />
                 </Link>
-                <Link href="/volunteer" className="btn-secondary !text-white !border-white/30 hover:!bg-white/10 text-lg !py-3.5 !px-8 flex items-center gap-2">
+                <Link href="/volunteer" className="btn-secondary-light text-lg !py-3.5 !px-8 flex items-center gap-2">
                   Become a Volunteer <ArrowRight className="w-5 h-5" />
                 </Link>
               </div>
