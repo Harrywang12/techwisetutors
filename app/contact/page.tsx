@@ -47,8 +47,8 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <h3 className="font-bold text-gray-900 mb-1">Email</h3>
-                      <a href="mailto:matthewsingh291@gmail.com" className="text-primary-600 hover:text-primary-700 transition-colors">
-                        matthewsingh291@gmail.com
+                      <a href="mailto:info@techwisetutors.org" className="text-primary-600 hover:text-primary-700 transition-colors">
+                        info@techwisetutors.org
                       </a>
                     </div>
                   </div>

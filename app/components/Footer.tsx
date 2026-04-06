@@ -63,8 +63,8 @@ export default function Footer() {
             <h4 className="font-semibold text-sm uppercase tracking-wider text-gray-300 mb-4">Contact</h4>
             <div className="flex items-center gap-2 text-gray-400 text-sm">
               <Mail className="w-4 h-4 shrink-0" />
-              <a href="mailto:matthewsingh291@gmail.com" className="hover:text-white transition-colors">
-                matthewsingh291@gmail.com
+              <a href="mailto:info@techwisetutors.org" className="hover:text-white transition-colors">
+                info@techwisetutors.org
               </a>
             </div>
           </div>

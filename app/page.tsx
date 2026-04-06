@@ -451,8 +451,8 @@ export default function HomePage() {
                   </div>
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Email Us</h3>
-                <a href="mailto:matthewsingh291@gmail.com" className="text-primary-600 font-medium hover:text-primary-700 transition-colors">
-                  matthewsingh291@gmail.com
+                <a href="mailto:info@techwisetutors.org" className="text-primary-600 font-medium hover:text-primary-700 transition-colors">
+                  info@techwisetutors.org
                 </a>
                 <div className="mt-6">
                   <Link href="/contact" className="btn-primary inline-flex items-center gap-2">
